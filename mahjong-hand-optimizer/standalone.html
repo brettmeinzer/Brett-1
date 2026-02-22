@@ -227,7 +227,7 @@ body {
       <section class="results-section">
         <h2>Best Hands</h2>
         <div id="results-list" class="results-list">
-          <p class="results-placeholder">Tap tiles below to add them to your hand. Matching hands will appear here.</p>
+          <p class="results-placeholder">Tap tiles below to build your hand. Best matching hands will appear here.</p>
         </div>
       </section>
 
@@ -698,8 +698,12 @@ function loadCard() {
   try { var raw = localStorage.getItem(STORAGE_KEY); if (!raw) return []; return JSON.parse(raw); }
   catch(e) { return []; }
 }
-function saveCard(templates) { localStorage.setItem(STORAGE_KEY, JSON.stringify(templates)); }
-function clearCard() { localStorage.removeItem(STORAGE_KEY); }
+function saveCard(templates) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(templates)); } catch(e) { /* file:// may block */ }
+}
+function clearCard() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+}
 function exportCard() { return JSON.stringify(loadCard(), null, 2); }
 function importCard(json) {
   var templates = JSON.parse(json);
@@ -718,12 +722,26 @@ var state = {
 };
 
 document.addEventListener('DOMContentLoaded', function() {
-  initTabs();
-  initTilePicker();
-  initHandDisplay();
-  initCardTab();
-  loadCardData();
-  updateAll();
+  try {
+    initTabs();
+    initTilePicker();
+    initHandDisplay();
+    initCardTab();
+    loadCardData();
+    // Auto-load sample hands on first visit so app works immediately
+    if (state.cardTemplates.length === 0) {
+      for (var h of SAMPLE_HANDS) {
+        state.cardTemplates.push(h);
+      }
+      try { saveCard(state.cardTemplates); } catch(e) { /* localStorage may fail on file:// */ }
+      rebuildConcreteHands();
+      renderCardList();
+    }
+    updateAll();
+  } catch(e) {
+    document.body.innerHTML = '<div style="color:white;padding:20px;font-family:sans-serif">' +
+      '<h2>Error starting app</h2><pre>' + e.message + '\n' + e.stack + '</pre></div>';
+  }
 });
 
 function initTabs() {
