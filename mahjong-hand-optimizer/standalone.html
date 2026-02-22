@@ -176,11 +176,33 @@ body {
   padding: 8px; font-size: 0.8rem; font-family: 'SF Mono', 'Fira Code', monospace; resize: vertical;
 }
 
-.camera-section { display: flex; justify-content: center; align-items: center; min-height: 60vh; }
-.camera-placeholder { text-align: center; color: var(--text-dim); }
-.camera-icon { font-size: 4rem; margin-bottom: 12px; }
-.camera-placeholder h2 { margin-bottom: 8px; color: var(--text); }
-.camera-placeholder p { font-size: 0.9rem; line-height: 1.5; }
+.camera-section { min-height: 60vh; padding: 12px 0; }
+.camera-start {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 50vh; gap: 12px;
+}
+.camera-or { color: var(--text-dim); font-size: 0.85rem; }
+.camera-btn {
+  padding: 14px 32px; font-size: 1rem; font-weight: 700; border: none; border-radius: 10px;
+  background: var(--accent); color: #fff; cursor: pointer; text-align: center;
+  transition: transform 0.1s;
+}
+.camera-btn:active { transform: scale(0.95); }
+.camera-btn-secondary { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.2); }
+.camera-live, .camera-review { text-align: center; }
+.camera-live video {
+  width: 100%; max-width: 500px; border-radius: var(--radius-lg);
+  background: #000; display: block; margin: 0 auto;
+}
+.camera-review img {
+  width: 100%; max-width: 500px; border-radius: var(--radius-lg);
+  display: block; margin: 0 auto;
+}
+.camera-controls { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.camera-hint {
+  color: var(--text-dim); font-size: 0.85rem; text-align: center;
+  margin-top: 12px; line-height: 1.4;
+}
 
 .btn-sm {
   padding: 6px 12px; font-size: 0.78rem; font-weight: 600;
@@ -319,11 +341,32 @@ body {
 
     <main id="tab-camera" class="tab-content">
       <section class="camera-section">
-        <div class="camera-placeholder">
-          <div class="camera-icon">&#128247;</div>
-          <h2>Camera Coming Soon</h2>
-          <p>Point your phone at your tiles for instant recognition.<br>
-             This feature is under development.</p>
+        <!-- Start screen -->
+        <div id="camera-start" class="camera-start">
+          <button id="btn-open-camera" class="camera-btn">Open Camera</button>
+          <span class="camera-or">or</span>
+          <label class="camera-btn camera-btn-secondary" for="photo-upload">Upload Photo</label>
+          <input type="file" id="photo-upload" accept="image/*" style="display:none">
+        </div>
+
+        <!-- Live camera view -->
+        <div id="camera-live" class="camera-live hidden">
+          <video id="camera-video" autoplay playsinline></video>
+          <div class="camera-controls">
+            <button id="btn-snap" class="camera-btn">Take Photo</button>
+            <button id="btn-stop-camera" class="camera-btn camera-btn-secondary">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Captured/uploaded image review -->
+        <div id="camera-review" class="camera-review hidden">
+          <img id="camera-preview" alt="Captured tiles">
+          <canvas id="camera-canvas" style="display:none"></canvas>
+          <p class="camera-hint">Use the photo as a reference and tap tiles on the Play tab to enter your hand.</p>
+          <div class="camera-controls">
+            <button id="btn-use-photo" class="camera-btn">Go to Play Tab</button>
+            <button id="btn-retake" class="camera-btn camera-btn-secondary">Retake</button>
+          </div>
         </div>
       </section>
     </main>
@@ -727,6 +770,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initTilePicker();
     initHandDisplay();
     initCardTab();
+    initCamera();
     loadCardData();
     // Auto-load sample hands on first visit so app works immediately
     if (state.cardTemplates.length === 0) {
@@ -942,6 +986,101 @@ function tileClass(id) {
     case 'joker': return 'tile-joker';
     default: return '';
   }
+}
+
+// ============================================================================
+// Camera
+// ============================================================================
+var cameraStream = null;
+
+function initCamera() {
+  var btnOpen = document.getElementById('btn-open-camera');
+  var btnSnap = document.getElementById('btn-snap');
+  var btnStop = document.getElementById('btn-stop-camera');
+  var btnUse = document.getElementById('btn-use-photo');
+  var btnRetake = document.getElementById('btn-retake');
+  var fileInput = document.getElementById('photo-upload');
+
+  btnOpen.addEventListener('click', openCamera);
+  btnSnap.addEventListener('click', takeSnapshot);
+  btnStop.addEventListener('click', stopCamera);
+  btnUse.addEventListener('click', goToPlayTab);
+  btnRetake.addEventListener('click', function() {
+    showCameraView('start');
+    openCamera();
+  });
+  fileInput.addEventListener('change', handleFileUpload);
+}
+
+function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Camera is not supported in this browser. Try uploading a photo instead.');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(function(stream) {
+      cameraStream = stream;
+      var video = document.getElementById('camera-video');
+      video.srcObject = stream;
+      showCameraView('live');
+    })
+    .catch(function(err) {
+      alert('Could not access camera: ' + err.message + '\nTry uploading a photo instead.');
+    });
+}
+
+function takeSnapshot() {
+  var video = document.getElementById('camera-video');
+  var canvas = document.getElementById('camera-canvas');
+  var preview = document.getElementById('camera-preview');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  preview.src = canvas.toDataURL('image/jpeg', 0.9);
+
+  stopStream();
+  showCameraView('review');
+}
+
+function stopCamera() {
+  stopStream();
+  showCameraView('start');
+}
+
+function stopStream() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(function(t) { t.stop(); });
+    cameraStream = null;
+  }
+  var video = document.getElementById('camera-video');
+  video.srcObject = null;
+}
+
+function handleFileUpload(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    document.getElementById('camera-preview').src = ev.target.result;
+    showCameraView('review');
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function goToPlayTab() {
+  // Switch to Play tab
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+  document.querySelector('.tab[data-tab="play"]').classList.add('active');
+  document.getElementById('tab-play').classList.add('active');
+}
+
+function showCameraView(view) {
+  document.getElementById('camera-start').classList.toggle('hidden', view !== 'start');
+  document.getElementById('camera-live').classList.toggle('hidden', view !== 'live');
+  document.getElementById('camera-review').classList.toggle('hidden', view !== 'review');
 }
 </script>
 </body>
