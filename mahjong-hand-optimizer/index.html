@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="description" content="American Mahjong hand optimizer - find the best hands to pursue from your tiles">
+  <title>Mahj Optimizer</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <h1 class="header-title">Mahj Optimizer</h1>
+      <span class="header-subtitle">Find your best hands</span>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="play">Play</button>
+      <button class="tab" data-tab="card">Card</button>
+      <button class="tab" data-tab="camera">Camera</button>
+    </nav>
+
+    <!-- Play Tab -->
+    <main id="tab-play" class="tab-content active">
+      <!-- Player's current hand -->
+      <section class="hand-display">
+        <div class="hand-header">
+          <h2>Your Hand <span id="hand-count">0</span>/14</h2>
+          <button id="clear-hand" class="btn-sm">Clear</button>
+        </div>
+        <div id="player-hand" class="tile-row"></div>
+      </section>
+
+      <!-- Best matching hands -->
+      <section class="results-section">
+        <h2>Best Hands</h2>
+        <div id="results-list" class="results-list">
+          <p class="results-placeholder">Tap tiles below to add them to your hand. Matching hands will appear here.</p>
+        </div>
+      </section>
+
+      <!-- Tile picker -->
+      <section class="picker-section">
+        <h3>Crak</h3>
+        <div class="tile-picker" data-suit="crack">
+          <button class="tile-btn tile-crack" data-tile="crack-1">1</button>
+          <button class="tile-btn tile-crack" data-tile="crack-2">2</button>
+          <button class="tile-btn tile-crack" data-tile="crack-3">3</button>
+          <button class="tile-btn tile-crack" data-tile="crack-4">4</button>
+          <button class="tile-btn tile-crack" data-tile="crack-5">5</button>
+          <button class="tile-btn tile-crack" data-tile="crack-6">6</button>
+          <button class="tile-btn tile-crack" data-tile="crack-7">7</button>
+          <button class="tile-btn tile-crack" data-tile="crack-8">8</button>
+          <button class="tile-btn tile-crack" data-tile="crack-9">9</button>
+        </div>
+
+        <h3>Bam</h3>
+        <div class="tile-picker" data-suit="bam">
+          <button class="tile-btn tile-bam" data-tile="bam-1">1</button>
+          <button class="tile-btn tile-bam" data-tile="bam-2">2</button>
+          <button class="tile-btn tile-bam" data-tile="bam-3">3</button>
+          <button class="tile-btn tile-bam" data-tile="bam-4">4</button>
+          <button class="tile-btn tile-bam" data-tile="bam-5">5</button>
+          <button class="tile-btn tile-bam" data-tile="bam-6">6</button>
+          <button class="tile-btn tile-bam" data-tile="bam-7">7</button>
+          <button class="tile-btn tile-bam" data-tile="bam-8">8</button>
+          <button class="tile-btn tile-bam" data-tile="bam-9">9</button>
+        </div>
+
+        <h3>Dot</h3>
+        <div class="tile-picker" data-suit="dot">
+          <button class="tile-btn tile-dot" data-tile="dot-1">1</button>
+          <button class="tile-btn tile-dot" data-tile="dot-2">2</button>
+          <button class="tile-btn tile-dot" data-tile="dot-3">3</button>
+          <button class="tile-btn tile-dot" data-tile="dot-4">4</button>
+          <button class="tile-btn tile-dot" data-tile="dot-5">5</button>
+          <button class="tile-btn tile-dot" data-tile="dot-6">6</button>
+          <button class="tile-btn tile-dot" data-tile="dot-7">7</button>
+          <button class="tile-btn tile-dot" data-tile="dot-8">8</button>
+          <button class="tile-btn tile-dot" data-tile="dot-9">9</button>
+        </div>
+
+        <h3>Winds &amp; Dragons</h3>
+        <div class="tile-picker">
+          <button class="tile-btn tile-wind" data-tile="wind-E">E</button>
+          <button class="tile-btn tile-wind" data-tile="wind-W">W</button>
+          <button class="tile-btn tile-wind" data-tile="wind-N">N</button>
+          <button class="tile-btn tile-wind" data-tile="wind-S">S</button>
+          <span class="picker-gap"></span>
+          <button class="tile-btn tile-dragon-red" data-tile="dragon-red">R</button>
+          <button class="tile-btn tile-dragon-green" data-tile="dragon-green">G</button>
+          <button class="tile-btn tile-dragon-soap" data-tile="dragon-soap">0</button>
+        </div>
+
+        <h3>Special</h3>
+        <div class="tile-picker">
+          <button class="tile-btn tile-flower" data-tile="flower">F</button>
+          <button class="tile-btn tile-joker" data-tile="joker">J</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Card Tab -->
+    <main id="tab-card" class="tab-content">
+      <section class="card-section">
+        <div class="card-header">
+          <h2>Your Card</h2>
+          <div class="card-actions">
+            <button id="load-samples" class="btn-sm">Load Samples</button>
+            <button id="clear-card" class="btn-sm btn-danger">Clear All</button>
+          </div>
+        </div>
+        <p class="card-info">
+          Enter the hands from your NMJL card. Hands are saved locally on your device.
+          You can start with sample hands to try the app.
+        </p>
+        <div id="card-list" class="card-list"></div>
+
+        <details class="import-export">
+          <summary>Import / Export</summary>
+          <div class="import-export-content">
+            <button id="export-card" class="btn-sm">Export JSON</button>
+            <button id="import-card-btn" class="btn-sm">Import JSON</button>
+            <textarea id="import-export-area" class="import-textarea" rows="6" placeholder="Paste card JSON here..."></textarea>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <!-- Camera Tab (placeholder) -->
+    <main id="tab-camera" class="tab-content">
+      <section class="camera-section">
+        <div class="camera-placeholder">
+          <div class="camera-icon">&#128247;</div>
+          <h2>Camera Coming Soon</h2>
+          <p>Point your phone at your tiles for instant recognition.<br>
+             This feature is under development.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
