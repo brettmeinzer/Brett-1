@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="description" content="American Mahjong hand optimizer - find the best hands to pursue from your tiles">
+  <title>Mahj Optimizer</title>
+  <style>
+/* === Reset & Base === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1a1a2e;
+  --bg-card: #16213e;
+  --bg-surface: #0f3460;
+  --text: #e8e8e8;
+  --text-dim: #a0a0b0;
+  --accent: #e94560;
+  --accent-hover: #ff6b81;
+  --green: #2ecc71;
+  --red: #e74c3c;
+  --orange: #f39c12;
+  --purple: #9b59b6;
+  --tile-bg: #fff;
+  --tile-border: #ccc;
+  --crack-color: #d32f2f;
+  --bam-color: #2e7d32;
+  --dot-color: #1565c0;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.header {
+  text-align: center;
+  padding: 12px 16px 8px;
+  background: var(--bg-card);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.header-title { font-size: 1.3rem; font-weight: 700; letter-spacing: 0.5px; }
+.header-subtitle { font-size: 0.75rem; color: var(--text-dim); }
+
+.tabs {
+  display: flex;
+  background: var(--bg-card);
+  border-bottom: 2px solid rgba(255,255,255,0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.tab {
+  flex: 1; padding: 10px 0; font-size: 0.9rem; font-weight: 600;
+  color: var(--text-dim); background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:active { opacity: 0.7; }
+
+.tab-content { display: none; padding: 12px 12px 24px; }
+.tab-content.active { display: block; }
+
+.hand-display { margin-bottom: 12px; }
+.hand-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.hand-header h2 { font-size: 1rem; font-weight: 600; }
+#hand-count { color: var(--accent); }
+
+.tile-row {
+  display: flex; flex-wrap: wrap; gap: 4px; min-height: 48px; padding: 8px;
+  background: var(--bg-card); border-radius: var(--radius);
+  border: 1px dashed rgba(255,255,255,0.15);
+}
+.tile-row .hand-tile {
+  width: 36px; height: 46px; display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 700; border-radius: 4px; background: var(--tile-bg);
+  color: #333; cursor: pointer; border: 1.5px solid var(--tile-border);
+  transition: transform 0.1s; user-select: none;
+}
+.hand-tile:active { transform: scale(0.9); }
+.hand-tile.tile-crack { color: var(--crack-color); border-color: var(--crack-color); }
+.hand-tile.tile-bam { color: var(--bam-color); border-color: var(--bam-color); }
+.hand-tile.tile-dot { color: var(--dot-color); border-color: var(--dot-color); }
+.hand-tile.tile-wind { color: #555; border-color: #888; }
+.hand-tile.tile-dragon-red { color: var(--crack-color); border-color: var(--crack-color); }
+.hand-tile.tile-dragon-green { color: var(--bam-color); border-color: var(--bam-color); }
+.hand-tile.tile-dragon-soap { color: #757575; border-color: #999; }
+.hand-tile.tile-flower { color: var(--purple); border-color: var(--purple); }
+.hand-tile.tile-joker { color: #e65100; border-color: #e65100; }
+
+.picker-section { margin-top: 16px; }
+.picker-section h3 {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-dim);
+  margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 1px;
+}
+.tile-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.picker-gap { width: 8px; }
+
+.tile-btn {
+  width: 38px; height: 48px; display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700; border-radius: 6px; background: var(--tile-bg);
+  border: 2px solid var(--tile-border); cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s; user-select: none;
+}
+.tile-btn:active { transform: scale(0.92); }
+.tile-btn.tile-crack { color: var(--crack-color); border-color: var(--crack-color); }
+.tile-btn.tile-bam { color: var(--bam-color); border-color: var(--bam-color); }
+.tile-btn.tile-dot { color: var(--dot-color); border-color: var(--dot-color); }
+.tile-btn.tile-wind { color: #555; border-color: #888; }
+.tile-btn.tile-dragon-red { color: var(--crack-color); border-color: var(--crack-color); }
+.tile-btn.tile-dragon-green { color: var(--bam-color); border-color: var(--bam-color); }
+.tile-btn.tile-dragon-soap { color: #757575; border-color: #999; }
+.tile-btn.tile-flower { color: var(--purple); border-color: var(--purple); }
+.tile-btn.tile-joker { color: #e65100; border-color: #e65100; background: #fff3e0; }
+.tile-btn.maxed { opacity: 0.35; pointer-events: none; }
+
+.results-section { margin-top: 4px; }
+.results-section h2 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+.results-placeholder { color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 20px 12px; }
+.results-list { display: flex; flex-direction: column; gap: 8px; }
+
+.result-card {
+  background: var(--bg-card); border-radius: var(--radius); padding: 12px;
+  border-left: 4px solid var(--accent);
+}
+.result-card.top-match { border-left-color: var(--green); }
+.result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.result-category { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.result-score { font-size: 1.1rem; font-weight: 700; color: var(--green); }
+.result-description {
+  font-size: 0.85rem; color: var(--text); margin-bottom: 8px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.result-bar { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-bottom: 8px; overflow: hidden; }
+.result-bar-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.3s ease; }
+.result-tiles { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px; }
+.result-tile { font-size: 0.7rem; font-weight: 600; padding: 2px 5px; border-radius: 3px; background: rgba(46,204,113,0.2); color: var(--green); }
+.result-tile.needed { background: rgba(231,76,60,0.2); color: var(--red); }
+.result-meta { display: flex; gap: 12px; font-size: 0.7rem; color: var(--text-dim); }
+.result-meta .concealed { color: var(--orange); }
+
+.card-section { max-width: 600px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.card-header h2 { font-size: 1.1rem; }
+.card-actions { display: flex; gap: 6px; }
+.card-info { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 16px; line-height: 1.4; }
+.card-list { display: flex; flex-direction: column; gap: 8px; }
+.card-item { background: var(--bg-card); border-radius: var(--radius); padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+.card-item-info { flex: 1; }
+.card-item-category { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.card-item-desc { font-size: 0.82rem; font-family: 'SF Mono', 'Fira Code', monospace; margin-top: 2px; }
+.card-item-meta { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+.card-item .btn-remove { background: none; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+.card-item .btn-remove:active { background: rgba(231,76,60,0.2); }
+.card-empty { text-align: center; padding: 30px 16px; color: var(--text-dim); font-size: 0.9rem; }
+
+.import-export { margin-top: 20px; background: var(--bg-card); border-radius: var(--radius); padding: 12px; }
+.import-export summary { font-size: 0.85rem; cursor: pointer; color: var(--text-dim); }
+.import-export-content { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.import-textarea {
+  width: 100%; background: var(--bg); color: var(--text);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius);
+  padding: 8px; font-size: 0.8rem; font-family: 'SF Mono', 'Fira Code', monospace; resize: vertical;
+}
+
+.camera-section { display: flex; justify-content: center; align-items: center; min-height: 60vh; }
+.camera-placeholder { text-align: center; color: var(--text-dim); }
+.camera-icon { font-size: 4rem; margin-bottom: 12px; }
+.camera-placeholder h2 { margin-bottom: 8px; color: var(--text); }
+.camera-placeholder p { font-size: 0.9rem; line-height: 1.5; }
+
+.btn-sm {
+  padding: 6px 12px; font-size: 0.78rem; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+  background: var(--bg-surface); color: var(--text); cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-sm:active { background: rgba(255,255,255,0.1); }
+.btn-danger { border-color: var(--red); color: var(--red); }
+.btn-danger:active { background: rgba(231,76,60,0.2); }
+.hidden { display: none !important; }
+
+@media (min-width: 480px) {
+  .tile-btn { width: 42px; height: 52px; font-size: 1.1rem; }
+  .tile-row .hand-tile { width: 40px; height: 50px; font-size: 0.85rem; }
+}
+@media (min-width: 768px) {
+  .tab-content { max-width: 680px; margin: 0 auto; }
+}
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <h1 class="header-title">Mahj Optimizer</h1>
+      <span class="header-subtitle">Find your best hands</span>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="play">Play</button>
+      <button class="tab" data-tab="card">Card</button>
+      <button class="tab" data-tab="camera">Camera</button>
+    </nav>
+
+    <main id="tab-play" class="tab-content active">
+      <section class="hand-display">
+        <div class="hand-header">
+          <h2>Your Hand <span id="hand-count">0</span>/14</h2>
+          <button id="clear-hand" class="btn-sm">Clear</button>
+        </div>
+        <div id="player-hand" class="tile-row"></div>
+      </section>
+
+      <section class="results-section">
+        <h2>Best Hands</h2>
+        <div id="results-list" class="results-list">
+          <p class="results-placeholder">Tap tiles below to add them to your hand. Matching hands will appear here.</p>
+        </div>
+      </section>
+
+      <section class="picker-section">
+        <h3>Crak</h3>
+        <div class="tile-picker" data-suit="crack">
+          <button class="tile-btn tile-crack" data-tile="crack-1">1</button>
+          <button class="tile-btn tile-crack" data-tile="crack-2">2</button>
+          <button class="tile-btn tile-crack" data-tile="crack-3">3</button>
+          <button class="tile-btn tile-crack" data-tile="crack-4">4</button>
+          <button class="tile-btn tile-crack" data-tile="crack-5">5</button>
+          <button class="tile-btn tile-crack" data-tile="crack-6">6</button>
+          <button class="tile-btn tile-crack" data-tile="crack-7">7</button>
+          <button class="tile-btn tile-crack" data-tile="crack-8">8</button>
+          <button class="tile-btn tile-crack" data-tile="crack-9">9</button>
+        </div>
+
+        <h3>Bam</h3>
+        <div class="tile-picker" data-suit="bam">
+          <button class="tile-btn tile-bam" data-tile="bam-1">1</button>
+          <button class="tile-btn tile-bam" data-tile="bam-2">2</button>
+          <button class="tile-btn tile-bam" data-tile="bam-3">3</button>
+          <button class="tile-btn tile-bam" data-tile="bam-4">4</button>
+          <button class="tile-btn tile-bam" data-tile="bam-5">5</button>
+          <button class="tile-btn tile-bam" data-tile="bam-6">6</button>
+          <button class="tile-btn tile-bam" data-tile="bam-7">7</button>
+          <button class="tile-btn tile-bam" data-tile="bam-8">8</button>
+          <button class="tile-btn tile-bam" data-tile="bam-9">9</button>
+        </div>
+
+        <h3>Dot</h3>
+        <div class="tile-picker" data-suit="dot">
+          <button class="tile-btn tile-dot" data-tile="dot-1">1</button>
+          <button class="tile-btn tile-dot" data-tile="dot-2">2</button>
+          <button class="tile-btn tile-dot" data-tile="dot-3">3</button>
+          <button class="tile-btn tile-dot" data-tile="dot-4">4</button>
+          <button class="tile-btn tile-dot" data-tile="dot-5">5</button>
+          <button class="tile-btn tile-dot" data-tile="dot-6">6</button>
+          <button class="tile-btn tile-dot" data-tile="dot-7">7</button>
+          <button class="tile-btn tile-dot" data-tile="dot-8">8</button>
+          <button class="tile-btn tile-dot" data-tile="dot-9">9</button>
+        </div>
+
+        <h3>Winds &amp; Dragons</h3>
+        <div class="tile-picker">
+          <button class="tile-btn tile-wind" data-tile="wind-E">E</button>
+          <button class="tile-btn tile-wind" data-tile="wind-W">W</button>
+          <button class="tile-btn tile-wind" data-tile="wind-N">N</button>
+          <button class="tile-btn tile-wind" data-tile="wind-S">S</button>
+          <span class="picker-gap"></span>
+          <button class="tile-btn tile-dragon-red" data-tile="dragon-red">R</button>
+          <button class="tile-btn tile-dragon-green" data-tile="dragon-green">G</button>
+          <button class="tile-btn tile-dragon-soap" data-tile="dragon-soap">0</button>
+        </div>
+
+        <h3>Special</h3>
+        <div class="tile-picker">
+          <button class="tile-btn tile-flower" data-tile="flower">F</button>
+          <button class="tile-btn tile-joker" data-tile="joker">J</button>
+        </div>
+      </section>
+    </main>
+
+    <main id="tab-card" class="tab-content">
+      <section class="card-section">
+        <div class="card-header">
+          <h2>Your Card</h2>
+          <div class="card-actions">
+            <button id="load-samples" class="btn-sm">Load Samples</button>
+            <button id="clear-card" class="btn-sm btn-danger">Clear All</button>
+          </div>
+        </div>
+        <p class="card-info">
+          Enter the hands from your NMJL card. Hands are saved locally on your device.
+          You can start with sample hands to try the app.
+        </p>
+        <div id="card-list" class="card-list"></div>
+
+        <details class="import-export">
+          <summary>Import / Export</summary>
+          <div class="import-export-content">
+            <button id="export-card" class="btn-sm">Export JSON</button>
+            <button id="import-card-btn" class="btn-sm">Import JSON</button>
+            <textarea id="import-export-area" class="import-textarea" rows="6" placeholder="Paste card JSON here..."></textarea>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <main id="tab-camera" class="tab-content">
+      <section class="camera-section">
+        <div class="camera-placeholder">
+          <div class="camera-icon">&#128247;</div>
+          <h2>Camera Coming Soon</h2>
+          <p>Point your phone at your tiles for instant recognition.<br>
+             This feature is under development.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+// ============================================================================
+// tiles.js
+// ============================================================================
+const SUITS = ['crack', 'bam', 'dot'];
+const SUIT_DISPLAY = { crack: 'Crak', bam: 'Bam', dot: 'Dot' };
+const SUIT_SHORT = { crack: 'C', bam: 'B', dot: 'D' };
+const SUIT_COLORS = { crack: '#d32f2f', bam: '#2e7d32', dot: '#1565c0' };
+const VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const WINDS = ['E', 'W', 'N', 'S'];
+const WIND_NAMES = { E: 'East', W: 'West', N: 'North', S: 'South' };
+const DRAGONS = ['red', 'green', 'soap'];
+const DRAGON_DISPLAY = { red: 'Red', green: 'Green', soap: 'Soap' };
+const DRAGON_SHORT = { red: 'R', green: 'G', soap: '0' };
+const SUIT_DRAGON = { crack: 'red', bam: 'green', dot: 'soap' };
+const DRAGON_SUIT = { red: 'crack', green: 'bam', soap: 'dot' };
+
+function tile(type, ...args) {
+  switch (type) {
+    case 'suit': return args[0] + '-' + args[1];
+    case 'wind': return 'wind-' + args[0];
+    case 'dragon': return 'dragon-' + args[0];
+    case 'flower': return 'flower';
+    case 'joker': return 'joker';
+    default: return type;
+  }
+}
+
+function parseTile(id) {
+  if (id === 'flower') return { type: 'flower' };
+  if (id === 'joker') return { type: 'joker' };
+  if (id.startsWith('wind-')) return { type: 'wind', wind: id.slice(5) };
+  if (id.startsWith('dragon-')) return { type: 'dragon', dragon: id.slice(7) };
+  var dash = id.indexOf('-');
+  return { type: 'suit', suit: id.slice(0, dash), value: parseInt(id.slice(dash + 1)) };
+}
+
+function tileLabel(id) {
+  var t = parseTile(id);
+  switch (t.type) {
+    case 'suit': return t.value + SUIT_SHORT[t.suit];
+    case 'wind': return t.wind;
+    case 'dragon': return DRAGON_SHORT[t.dragon];
+    case 'flower': return 'F';
+    case 'joker': return 'J';
+  }
+}
+
+function tileName(id) {
+  var t = parseTile(id);
+  switch (t.type) {
+    case 'suit': return t.value + ' ' + SUIT_DISPLAY[t.suit];
+    case 'wind': return WIND_NAMES[t.wind];
+    case 'dragon': return DRAGON_DISPLAY[t.dragon];
+    case 'flower': return 'Flower';
+    case 'joker': return 'Joker';
+  }
+}
+
+function maxCount(id) {
+  var t = parseTile(id);
+  if (t.type === 'flower') return 8;
+  if (t.type === 'joker') return 8;
+  return 4;
+}
+
+// ============================================================================
+// hands.js
+// ============================================================================
+function expandTemplate(template) {
+  var variants = [];
+  var suitSlots = new Set();
+  for (var g of template.groups) {
+    if (g.type === 'suit' && g.suit) suitSlots.add(g.suit);
+    if (g.type === 'dragon' && g.dragon === 'matching' && g.matchSuit) suitSlots.add(g.matchSuit);
+  }
+  var slots = [...suitSlots].sort();
+  var suitAssignments = generateSuitAssignments(slots, template.suitMapping || {});
+  var hasN = template.groups.some(function(g) { return typeof g.value === 'string' && g.value.includes('N'); });
+  var nMin = template.nMin != null ? template.nMin : 1;
+  var nMax = template.nMax != null ? template.nMax : 9;
+  var nValues = hasN ? range(nMin, nMax) : [0];
+  for (var suits of suitAssignments) {
+    for (var n of nValues) {
+      var concrete = resolveHand(template, suits, n);
+      if (concrete) variants.push(concrete);
+    }
+  }
+  return variants;
+}
+
+function generateSuitAssignments(slots, mapping) {
+  if (slots.length === 0) return [{}];
+  var results = [];
+  function recurse(idx, assigned) {
+    if (idx === slots.length) { results.push(Object.assign({}, assigned)); return; }
+    var slot = slots[idx];
+    var constraint = mapping[slot] || 'any';
+    for (var suit of SUITS) {
+      var valid = true;
+      if (constraint === 'different') {
+        for (var s of Object.values(assigned)) { if (s === suit) { valid = false; break; } }
+      } else if (constraint === 'remaining') {
+        var used = new Set(Object.values(assigned));
+        valid = !used.has(suit) && used.size === 2;
+      } else if (constraint.startsWith && constraint.startsWith('same_as_')) {
+        var ref = constraint.slice(8);
+        valid = suit === assigned[ref];
+      }
+      if (valid) { assigned[slot] = suit; recurse(idx + 1, assigned); delete assigned[slot]; }
+    }
+  }
+  recurse(0, {});
+  return results;
+}
+
+function resolveHand(template, suitAssignment, n) {
+  var groups = [];
+  var allTiles = [];
+  for (var g of template.groups) {
+    var resolved = resolveGroup(g, suitAssignment, n);
+    if (!resolved) return null;
+    groups.push({ tileId: resolved.tileId, count: g.count });
+    for (var i = 0; i < g.count; i++) allTiles.push(resolved.tileId);
+  }
+  return {
+    tiles: allTiles, groups: groups,
+    jokersAllowed: template.jokersAllowed !== false,
+    concealed: template.concealed || false,
+    value: template.value || 25,
+    templateId: template.id, category: template.category,
+    handNumber: template.number, description: template.description,
+  };
+}
+
+function resolveGroup(group, suits, n) {
+  switch (group.type) {
+    case 'suit': {
+      var suit = suits[group.suit];
+      if (!suit) return null;
+      var value = resolveValue(group.value, n);
+      if (value < 1 || value > 9) return null;
+      return { tileId: tile('suit', suit, value) };
+    }
+    case 'wind': return { tileId: tile('wind', group.wind) };
+    case 'dragon': {
+      if (group.dragon === 'matching') {
+        var s = suits[group.matchSuit];
+        if (!s) return null;
+        return { tileId: tile('dragon', SUIT_DRAGON[s]) };
+      }
+      return { tileId: tile('dragon', group.dragon) };
+    }
+    case 'flower': return { tileId: tile('flower') };
+    case 'joker': return { tileId: tile('joker') };
+    default: return null;
+  }
+}
+
+function resolveValue(expr, n) {
+  if (typeof expr === 'number') return expr;
+  if (expr === 'N') return n;
+  var match = expr.match(/^N([+-])(\d+)$/);
+  if (match) { var k = parseInt(match[2]); return match[1] === '+' ? n + k : n - k; }
+  return parseInt(expr) || 0;
+}
+
+function range(min, max) { var arr = []; for (var i = min; i <= max; i++) arr.push(i); return arr; }
+
+function handSize(template) {
+  return template.groups.reduce(function(sum, g) { return sum + g.count; }, 0);
+}
+
+// ============================================================================
+// matching.js
+// ============================================================================
+function scoreHand(playerTiles, concreteHand) {
+  var available = {};
+  for (var t of playerTiles) available[t] = (available[t] || 0) + 1;
+  var jokersLeft = available['joker'] || 0;
+  var totalMatched = 0, jokersUsed = 0;
+  var tilesNeeded = [], tilesMatched = [];
+  for (var group of concreteHand.groups) {
+    var tileId = group.tileId, count = group.count;
+    var matched = 0, remaining = count;
+    if (tileId === 'joker') {
+      var use = Math.min(jokersLeft, remaining);
+      jokersLeft -= use; matched += use; remaining -= use;
+      for (var i = 0; i < use; i++) tilesMatched.push('joker');
+    } else {
+      var have = available[tileId] || 0;
+      var use2 = Math.min(have, remaining);
+      available[tileId] = (available[tileId] || 0) - use2;
+      matched += use2; remaining -= use2;
+      for (var i = 0; i < use2; i++) tilesMatched.push(tileId);
+      if (remaining > 0 && count >= 3 && concreteHand.jokersAllowed) {
+        var jokerUse = Math.min(jokersLeft, remaining);
+        jokersLeft -= jokerUse; jokersUsed += jokerUse;
+        matched += jokerUse; remaining -= jokerUse;
+        for (var j = 0; j < jokerUse; j++) tilesMatched.push('joker');
+      }
+    }
+    totalMatched += matched;
+    for (var i = 0; i < remaining; i++) tilesNeeded.push(tileId);
+  }
+  var totalTiles = concreteHand.tiles.length;
+  return {
+    hand: concreteHand, score: totalTiles > 0 ? totalMatched / totalTiles : 0,
+    matched: totalMatched, total: totalTiles, needed: tilesNeeded.length,
+    tilesNeeded: tilesNeeded, tilesMatched: tilesMatched, jokersUsed: jokersUsed,
+  };
+}
+
+function rankHands(playerTiles, allConcreteHands, options) {
+  options = options || {};
+  var topN = options.topN || 10;
+  var bestPerTemplate = options.bestPerTemplate !== false;
+  var results = allConcreteHands.map(function(hand) { return scoreHand(playerTiles, hand); });
+  if (bestPerTemplate) {
+    var best = new Map();
+    for (var r of results) {
+      var key = r.hand.templateId;
+      var existing = best.get(key);
+      if (!existing || r.score > existing.score || (r.score === existing.score && r.jokersUsed < existing.jokersUsed)) {
+        best.set(key, r);
+      }
+    }
+    results = [...best.values()];
+  }
+  results.sort(function(a, b) {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.needed !== b.needed) return a.needed - b.needed;
+    return (b.hand.value || 0) - (a.hand.value || 0);
+  });
+  return results.slice(0, topN);
+}
+
+// ============================================================================
+// sample-hands.js
+// ============================================================================
+var SAMPLE_HANDS = [
+  {
+    id: 'sample-cr-1', category: 'Consecutive Run', number: 1,
+    description: 'NNNN (N+1)(N+1)(N+1)(N+1) (N+2)(N+2)(N+2)(N+2) (N+3)(N+3)  [one suit]',
+    groups: [
+      { count: 4, type: 'suit', suit: 'A', value: 'N' },
+      { count: 4, type: 'suit', suit: 'A', value: 'N+1' },
+      { count: 4, type: 'suit', suit: 'A', value: 'N+2' },
+      { count: 2, type: 'suit', suit: 'A', value: 'N+3' },
+    ],
+    nMin: 1, nMax: 6, concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-cr-2', category: 'Consecutive Run', number: 2,
+    description: 'NNN (N+1)(N+1)(N+1) (N+2)(N+2)(N+2) NN DD  [one suit + matching dragon]',
+    groups: [
+      { count: 3, type: 'suit', suit: 'A', value: 'N' },
+      { count: 3, type: 'suit', suit: 'A', value: 'N+1' },
+      { count: 3, type: 'suit', suit: 'A', value: 'N+2' },
+      { count: 2, type: 'suit', suit: 'A', value: 'N+3' },
+      { count: 3, type: 'dragon', dragon: 'matching', matchSuit: 'A' },
+    ],
+    nMin: 1, nMax: 6, concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-aln-1', category: 'Like Numbers', number: 1,
+    description: 'NNNN NNNN NNNN DD  [three suits, same number + dragon pair]',
+    groups: [
+      { count: 4, type: 'suit', suit: 'A', value: 'N' },
+      { count: 4, type: 'suit', suit: 'B', value: 'N' },
+      { count: 4, type: 'suit', suit: 'C', value: 'N' },
+      { count: 2, type: 'dragon', dragon: 'red' },
+    ],
+    suitMapping: { A: 'any', B: 'different', C: 'remaining' },
+    nMin: 1, nMax: 9, concealed: false, jokersAllowed: true, value: 30,
+  },
+  {
+    id: 'sample-even-1', category: '2468', number: 1,
+    description: '2222 4444 6666 88  [one suit]',
+    groups: [
+      { count: 4, type: 'suit', suit: 'A', value: 2 },
+      { count: 4, type: 'suit', suit: 'A', value: 4 },
+      { count: 4, type: 'suit', suit: 'A', value: 6 },
+      { count: 2, type: 'suit', suit: 'A', value: 8 },
+    ],
+    concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-even-2', category: '2468', number: 2,
+    description: '22 444 666 8888  [one suit]',
+    groups: [
+      { count: 2, type: 'suit', suit: 'A', value: 2 },
+      { count: 3, type: 'suit', suit: 'A', value: 4 },
+      { count: 3, type: 'suit', suit: 'A', value: 6 },
+      { count: 4, type: 'suit', suit: 'A', value: 8 },
+      { count: 2, type: 'dragon', dragon: 'matching', matchSuit: 'A' },
+    ],
+    concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-odd-1', category: '13579', number: 1,
+    description: '111 333 5555 7 9  [one suit, concealed]',
+    groups: [
+      { count: 3, type: 'suit', suit: 'A', value: 1 },
+      { count: 3, type: 'suit', suit: 'A', value: 3 },
+      { count: 4, type: 'suit', suit: 'A', value: 5 },
+      { count: 2, type: 'suit', suit: 'A', value: 7 },
+      { count: 2, type: 'suit', suit: 'A', value: 9 },
+    ],
+    concealed: true, jokersAllowed: true, value: 30,
+  },
+  {
+    id: 'sample-wd-1', category: 'Winds & Dragons', number: 1,
+    description: 'EEEE WWWW NNNN SS  [all winds]',
+    groups: [
+      { count: 4, type: 'wind', wind: 'E' },
+      { count: 4, type: 'wind', wind: 'W' },
+      { count: 4, type: 'wind', wind: 'N' },
+      { count: 2, type: 'wind', wind: 'S' },
+    ],
+    concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-wd-2', category: 'Winds & Dragons', number: 2,
+    description: 'FF NNNN SSSS DDDD  [flowers + N/S winds + any dragon]',
+    groups: [
+      { count: 2, type: 'flower' },
+      { count: 4, type: 'wind', wind: 'N' },
+      { count: 4, type: 'wind', wind: 'S' },
+      { count: 4, type: 'dragon', dragon: 'green' },
+    ],
+    concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-369-1', category: '369', number: 1,
+    description: '333 6666 9999 DD  [one suit + matching dragon]',
+    groups: [
+      { count: 3, type: 'suit', suit: 'A', value: 3 },
+      { count: 4, type: 'suit', suit: 'A', value: 6 },
+      { count: 4, type: 'suit', suit: 'A', value: 9 },
+      { count: 3, type: 'dragon', dragon: 'matching', matchSuit: 'A' },
+    ],
+    concealed: false, jokersAllowed: true, value: 25,
+  },
+  {
+    id: 'sample-sp-1', category: 'Singles & Pairs', number: 1,
+    description: '11 33 55 77 99 DD FF  [odds + matching dragon + flowers, one suit]',
+    groups: [
+      { count: 2, type: 'suit', suit: 'A', value: 1 },
+      { count: 2, type: 'suit', suit: 'A', value: 3 },
+      { count: 2, type: 'suit', suit: 'A', value: 5 },
+      { count: 2, type: 'suit', suit: 'A', value: 7 },
+      { count: 2, type: 'suit', suit: 'A', value: 9 },
+      { count: 2, type: 'dragon', dragon: 'matching', matchSuit: 'A' },
+      { count: 2, type: 'flower' },
+    ],
+    concealed: true, jokersAllowed: false, value: 50,
+  },
+];
+
+// ============================================================================
+// card-store.js
+// ============================================================================
+var STORAGE_KEY = 'mahj-optimizer-card';
+
+function loadCard() {
+  try { var raw = localStorage.getItem(STORAGE_KEY); if (!raw) return []; return JSON.parse(raw); }
+  catch(e) { return []; }
+}
+function saveCard(templates) { localStorage.setItem(STORAGE_KEY, JSON.stringify(templates)); }
+function clearCard() { localStorage.removeItem(STORAGE_KEY); }
+function exportCard() { return JSON.stringify(loadCard(), null, 2); }
+function importCard(json) {
+  var templates = JSON.parse(json);
+  if (!Array.isArray(templates)) throw new Error('Invalid card data: expected array');
+  saveCard(templates);
+  return templates;
+}
+
+// ============================================================================
+// app.js
+// ============================================================================
+var state = {
+  playerTiles: [],
+  concreteHands: [],
+  cardTemplates: [],
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+  initTabs();
+  initTilePicker();
+  initHandDisplay();
+  initCardTab();
+  loadCardData();
+  updateAll();
+});
+
+function initTabs() {
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+function initTilePicker() {
+  document.querySelectorAll('.tile-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { addTile(btn.dataset.tile); });
+  });
+}
+
+function addTile(tileId) {
+  if (state.playerTiles.length >= 14) return;
+  var current = state.playerTiles.filter(function(t) { return t === tileId; }).length;
+  if (current >= maxCount(tileId)) return;
+  state.playerTiles.push(tileId);
+  updateAll();
+}
+
+function removeTile(index) { state.playerTiles.splice(index, 1); updateAll(); }
+function clearHand() { state.playerTiles = []; updateAll(); }
+
+function initHandDisplay() {
+  document.getElementById('clear-hand').addEventListener('click', clearHand);
+}
+
+function renderHand() {
+  var container = document.getElementById('player-hand');
+  var count = document.getElementById('hand-count');
+  count.textContent = state.playerTiles.length;
+  container.innerHTML = '';
+  if (state.playerTiles.length === 0) return;
+  state.playerTiles.forEach(function(tileId, idx) {
+    var el = document.createElement('button');
+    el.className = 'hand-tile ' + tileClass(tileId);
+    el.textContent = tileLabel(tileId);
+    el.title = tileName(tileId) + ' (tap to remove)';
+    el.addEventListener('click', function() { removeTile(idx); });
+    container.appendChild(el);
+  });
+}
+
+function renderResults() {
+  var container = document.getElementById('results-list');
+  if (state.playerTiles.length === 0 || state.concreteHands.length === 0) {
+    var msg = state.concreteHands.length === 0
+      ? 'No card hands loaded. Go to the Card tab and load sample hands or add your own.'
+      : 'Tap tiles below to add them to your hand. Matching hands will appear here.';
+    container.innerHTML = '<p class="results-placeholder">' + msg + '</p>';
+    return;
+  }
+  var ranked = rankHands(state.playerTiles, state.concreteHands, { topN: 10 });
+  if (ranked.length === 0) {
+    container.innerHTML = '<p class="results-placeholder">No matching hands found.</p>';
+    return;
+  }
+  container.innerHTML = '';
+  ranked.forEach(function(result, i) {
+    var pct = Math.round(result.score * 100);
+    var card = document.createElement('div');
+    card.className = 'result-card' + (i === 0 ? ' top-match' : '');
+    var neededCounts = {};
+    for (var t of result.tilesNeeded) neededCounts[t] = (neededCounts[t] || 0) + 1;
+    var matchedCounts = {};
+    for (var t of result.tilesMatched) matchedCounts[t] = (matchedCounts[t] || 0) + 1;
+    var matchedHtml = Object.entries(matchedCounts)
+      .map(function(e) { return '<span class="result-tile">' + tileLabel(e[0]) + (e[1] > 1 ? ' x' + e[1] : '') + '</span>'; }).join('');
+    var neededHtml = Object.entries(neededCounts)
+      .map(function(e) { return '<span class="result-tile needed">' + tileLabel(e[0]) + (e[1] > 1 ? ' x' + e[1] : '') + '</span>'; }).join('');
+    var meta = [];
+    meta.push((result.hand.value || 25) + ' pts');
+    if (result.hand.concealed) meta.push('<span class="concealed">Concealed</span>');
+    if (result.jokersUsed > 0) meta.push(result.jokersUsed + ' joker' + (result.jokersUsed > 1 ? 's' : '') + ' used');
+    if (!result.hand.jokersAllowed) meta.push('No jokers');
+    card.innerHTML =
+      '<div class="result-header">' +
+        '<span class="result-category">' + result.hand.category + ' #' + result.hand.handNumber + '</span>' +
+        '<span class="result-score">' + pct + '%</span>' +
+      '</div>' +
+      '<div class="result-description">' + result.hand.description + '</div>' +
+      '<div class="result-bar"><div class="result-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="result-tiles">' + matchedHtml + (neededHtml ? (matchedHtml ? ' ' : '') + neededHtml : '') + '</div>' +
+      '<div class="result-meta">' + meta.join(' &middot; ') + '</div>';
+    container.appendChild(card);
+  });
+}
+
+function initCardTab() {
+  document.getElementById('load-samples').addEventListener('click', function() {
+    for (var h of SAMPLE_HANDS) {
+      if (!state.cardTemplates.find(function(t) { return t.id === h.id; })) state.cardTemplates.push(h);
+    }
+    saveCard(state.cardTemplates);
+    rebuildConcreteHands(); renderCardList(); updateAll();
+  });
+  document.getElementById('clear-card').addEventListener('click', function() {
+    if (confirm('Remove all hands from your card?')) {
+      clearCard(); state.cardTemplates = []; state.concreteHands = [];
+      renderCardList(); updateAll();
+    }
+  });
+  document.getElementById('export-card').addEventListener('click', function() {
+    document.getElementById('import-export-area').value = exportCard();
+  });
+  document.getElementById('import-card-btn').addEventListener('click', function() {
+    var json = document.getElementById('import-export-area').value.trim();
+    if (!json) return;
+    try {
+      var templates = importCard(json);
+      state.cardTemplates = templates;
+      rebuildConcreteHands(); renderCardList(); updateAll();
+    } catch (e) { alert('Invalid JSON: ' + e.message); }
+  });
+}
+
+function loadCardData() {
+  state.cardTemplates = loadCard();
+  rebuildConcreteHands(); renderCardList();
+}
+
+function rebuildConcreteHands() {
+  state.concreteHands = [];
+  for (var template of state.cardTemplates) {
+    try { state.concreteHands.push(...expandTemplate(template)); }
+    catch (e) { console.warn('Failed to expand template ' + template.id + ':', e); }
+  }
+}
+
+function renderCardList() {
+  var container = document.getElementById('card-list');
+  if (state.cardTemplates.length === 0) {
+    container.innerHTML = '<div class="card-empty"><p>No hands loaded yet.</p><p>Tap "Load Samples" to try example hands, or import your own card data.</p></div>';
+    return;
+  }
+  container.innerHTML = '';
+  var byCategory = {};
+  for (var t of state.cardTemplates) {
+    if (!byCategory[t.category]) byCategory[t.category] = [];
+    byCategory[t.category].push(t);
+  }
+  for (var [cat, hands] of Object.entries(byCategory)) {
+    for (var h of hands) {
+      var size = handSize(h);
+      var variants = expandTemplate(h).length;
+      var item = document.createElement('div');
+      item.className = 'card-item';
+      item.innerHTML =
+        '<div class="card-item-info">' +
+          '<div class="card-item-category">' + cat + ' #' + h.number + '</div>' +
+          '<div class="card-item-desc">' + h.description + '</div>' +
+          '<div class="card-item-meta">' +
+            h.value + ' pts &middot; ' + size + ' tiles &middot; ' + variants + ' variant' + (variants !== 1 ? 's' : '') +
+            (h.concealed ? ' &middot; Concealed' : '') +
+            (!h.jokersAllowed ? ' &middot; No Jokers' : '') +
+          '</div>' +
+        '</div>' +
+        '<button class="btn-remove" data-id="' + h.id + '" title="Remove">&times;</button>';
+      container.appendChild(item);
+    }
+  }
+  container.querySelectorAll('.btn-remove').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.dataset.id;
+      state.cardTemplates = state.cardTemplates.filter(function(t) { return t.id !== id; });
+      saveCard(state.cardTemplates);
+      rebuildConcreteHands(); renderCardList(); updateAll();
+    });
+  });
+}
+
+function updatePickerState() {
+  document.querySelectorAll('.tile-btn').forEach(function(btn) {
+    var tileId = btn.dataset.tile;
+    var current = state.playerTiles.filter(function(t) { return t === tileId; }).length;
+    var atMax = current >= maxCount(tileId) || state.playerTiles.length >= 14;
+    btn.classList.toggle('maxed', atMax);
+  });
+}
+
+function updateAll() { renderHand(); renderResults(); updatePickerState(); }
+
+function tileClass(id) {
+  var t = parseTile(id);
+  switch (t.type) {
+    case 'suit': return 'tile-' + t.suit;
+    case 'wind': return 'tile-wind';
+    case 'dragon': return 'tile-dragon-' + t.dragon;
+    case 'flower': return 'tile-flower';
+    case 'joker': return 'tile-joker';
+    default: return '';
+  }
+}
+</script>
+</body>
+</html>
